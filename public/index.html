@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#14232b">
-<title>Quizslinger</title>
+<title>Math Duel at High Noon</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Alegreya+Sans:wght@400;700&family=Rye&display=swap" rel="stylesheet">
@@ -58,7 +58,8 @@
     <div class="bar"><i id="timebar"></i></div>
   </header>
   <section class="eq panel"><p id="eqText" class="eqtext"></p><p id="eqNote" class="muted"></p></section>
-  <section class="opps panel"><h3>Pick your target</h3><div id="opps" class="oppgrid"></div></section>
+  <section id="arena" class="arena" aria-label="Duel arena: move the mouse or drag to aim, tap an outlaw to snap to them"></section>
+  <section class="opps panel"><h3>Outlaws (tap to aim)</h3><div id="opps" class="oppgrid"></div></section>
   <section class="rev panel">
     <div class="cyl"><div id="cylinder" class="cylinder"><span id="loadedNum">–</span></div>
       <div><b id="ammo"></b><p id="loadedNote" class="muted"></p></div></div>
@@ -84,13 +85,15 @@
   <ol>
     <li>Solve the equation in your head.</li>
     <li>Tap a bullet to load it. You choose; nothing loads for you.</li>
-    <li>Tap an opponent, then Fire.</li>
+    <li>Aim at an opponent: move the mouse, or drag on touch screens. Tap an outlaw to snap to them. The crosshair turns red when locked on.</li><li>Press Fire.</li>
     <li>The right bullet hits and ends the round. A wrong bullet is a blank: it is spent and you reload for a moment.</li>
   </ol>
   <p>Six bullets refill every round. Each hit costs 3 lives. Last gunslinger standing wins.</p>
   <button id="helpClose" class="btn primary">Got it</button>
 </dialog>
 <script src="/socket.io/socket.io.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="arena.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

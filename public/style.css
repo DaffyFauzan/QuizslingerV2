@@ -36,13 +36,14 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
 .flash.red{animation:fl .5s}.flash.gold{background:#f0c777;animation:fl .4s}.flash.red{background:#b3261e}
 @keyframes fl{0%{opacity:.5}100%{opacity:0}}
 /* duel */
-.duel,#duel{display:grid;gap:12px;grid-template-columns:1fr;grid-template-areas:"top" "eq" "opps" "rev" "me"}
+.duel,#duel{display:grid;gap:12px;grid-template-columns:1fr;grid-template-areas:"top" "eq" "arena" "rev" "opps" "me"}
 #duel:not([hidden]){display:grid}
 .top{grid-area:top;display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding-right:52px}
 .chip{background:#1b110bcc;border:2px solid var(--brass);border-radius:20px;padding:2px 12px;font-weight:700}
 .bar{flex-basis:100%;height:10px;background:#1b110b;border-radius:5px;overflow:hidden;border:1px solid var(--brass)}
 .bar i{display:block;height:100%;width:100%;background:var(--brass);transition:width .25s linear}.bar i.low{background:var(--blood)}
 .eq{grid-area:eq;text-align:center}.eqtext{font:clamp(1.9rem,8vw,3.4rem)/1.1 var(--display);margin:.15em 0;color:var(--bone);overflow-wrap:anywhere}
+.arena{grid-area:arena;height:clamp(220px,38vh,420px);border:3px solid var(--brass);border-radius:6px;overflow:hidden;background:#14232b;box-shadow:0 6px 0 #000a}
 .opps{grid-area:opps}.rev{grid-area:rev;display:flex;flex-direction:column;gap:12px}.me{grid-area:me}
 .oppgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px}
 .opp{font:inherit;color:inherit;text-align:left;min-height:64px;padding:8px 10px;border-radius:4px;border:2px solid #c9953c55;background:#1b110b;cursor:pointer}
@@ -69,9 +70,9 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
 dialog{max-width:min(92vw,460px);border:3px solid var(--brass);border-radius:6px;background:var(--leather);color:var(--bone);padding:18px}
 dialog::backdrop{background:#000a}dialog h3{font:1.4rem var(--display);color:var(--brass);margin:0 0 8px}
 @media (min-width:880px),(orientation:landscape) and (max-height:520px){
-  #duel:not([hidden]){grid-template-columns:1fr 1fr;grid-template-areas:"top top" "eq rev" "opps rev" "me me"}
+  #duel:not([hidden]){grid-template-columns:1fr 1fr;grid-template-areas:"top top" "eq rev" "arena rev" "opps rev" "me me"}
   .screen.wide{padding-top:calc(var(--sa-t) + 8px)}
   .eqtext{font-size:clamp(1.6rem,4.5vw,3rem)}
 }
-@media (max-height:520px) and (orientation:landscape){.chambers .ch{min-height:52px}.fire{min-height:52px}.cylinder{width:60px;height:60px}}
+@media (max-height:520px) and (orientation:landscape){.arena{height:46vh}.chambers .ch{min-height:52px}.fire{min-height:52px}.cylinder{width:60px;height:60px}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}

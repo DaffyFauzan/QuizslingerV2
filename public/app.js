@@ -1,7 +1,7 @@
 'use strict';
 const $ = (id) => document.getElementById(id);
 const socket = io({ reconnection: true });
-let S = null, offset = 0, target = null, lastShot = null, prevState = null, prevPhase = null, prevRound = 0;
+let arena = null, S = null, offset = 0, target = null, lastShot = null, prevState = null, prevPhase = null, prevRound = 0;
 let sess = JSON.parse(localStorage.getItem('mdSession') || 'null');
 const log = [];
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -100,15 +100,17 @@ function renderDuel() {
   const r = S.round, p = me(), live = liveRound(), now = serverNow();
   $('dRoom').textContent = `Room ${S.code}`; $('dRound').textContent = `Round ${r.no}`;
   const opps = S.players.filter((q) => q.id !== S.you);
-  if (!target || !byId(target) || !byId(target).alive) { const f = opps.find((q) => q.alive); target = f ? f.id : null; }
+  if (!arena && window.THREE) { arena = new Arena($('arena')); arena.onAim = (id) => { if (id !== target) { target = id; if (S && S.state === 'playing') renderDuel(); } }; }
+  if (arena) arena.update(S.players, S.you, S.maxHp);
+  if (target && (!byId(target) || !byId(target).alive)) target = null;
   $('eqText').textContent = r.text;
   $('eqNote').textContent = !p.alive ? 'You are out. Watch the rest of the duel.'
     : r.phase === 'between' ? (r.winnerId ? `${r.winnerId === S.you ? 'You' : byId(r.winnerId).name} fired the right answer.` : 'Time ran out. Nobody hit.')
-    : 'Load the right bullet, pick a target, fire.';
+    : 'Load the right bullet, aim at an outlaw, fire.';
   $('opps').innerHTML = opps.map((q) =>
     `<button class="opp ${q.id === target ? 'sel' : ''} ${q.alive ? '' : 'dead'} ${q.connected ? '' : 'off'}" data-id="${q.id}" ${q.alive ? '' : 'disabled'} aria-pressed="${q.id === target}">
       <span class="nm">${esc(q.name)}</span><span class="hearts">${q.alive ? hearts(q) : '💀 Out'}</span>${q.ready && q.alive && live ? '<span class="rdy"> loaded</span>' : ''}</button>`).join('');
-  $('opps').querySelectorAll('.opp').forEach((b) => (b.onclick = () => { target = b.dataset.id; renderDuel(); }));
+  $('opps').querySelectorAll('.opp').forEach((b) => (b.onclick = () => { if (arena) arena.lookAt(b.dataset.id); else { target = b.dataset.id; renderDuel(); } }));
   const spent = new Set(S.me.spent), left = S.bullets - spent.size;
   $('chambers').innerHTML = r.choices.map((c, i) => {
     const cls = ['ch', S.me.loaded === i ? 'on' : '', spent.has(i) ? 'spent' : '', r.phase === 'between' && r.correct === i ? 'right' : ''].join(' ');
@@ -121,7 +123,7 @@ function renderDuel() {
   const reloading = S.me.cd > now, f = $('fire');
   f.disabled = !(live && S.me.loaded !== null && target && !reloading);
   const tn = target && byId(target) ? byId(target).name : '';
-  f.textContent = reloading ? 'Reloading…' : S.me.loaded === null ? 'Load a bullet' : !target ? 'No target' : `FIRE at ${tn}`;
+  f.textContent = reloading ? 'Reloading…' : S.me.loaded === null ? 'Load a bullet' : !target ? 'Aim at an outlaw' : `FIRE at ${tn}`;
   if (reloading) setTimeout(() => S && S.state === 'playing' && renderDuel(), S.me.cd - now + 30);
   $('meCard').innerHTML = `<div class="mecard" id="mc"><b>${esc(p.name)}</b><span>${p.alive ? hearts(p) : '💀 Out'}</span><span class="muted">Hits ${p.hits} · Blanks ${p.blanks}</span></div>`;
   $('log').innerHTML = log.map((l) => `<li>${esc(l)}</li>`).join('');
@@ -176,7 +178,7 @@ socket.on('state', (s) => {
   else { show('results'); renderResults(); }
 });
 socket.on('shot', (e) => {
-  lastShot = e; SND.bang();
+  lastShot = e; SND.bang(); if (arena) arena.shoot(e.from, e.to, e.hit);
   const you = e.from === S?.you, tgt = e.to === S?.you;
   if (e.hit) {
     setTimeout(SND.hit, 120);

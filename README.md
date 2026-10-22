@@ -30,4 +30,4 @@ Open several browser tabs (or phones on the same network) to play.
 - After every change the server sends each player a personalised `state` snapshot. The correct index is only included after the round ends. `shot` events drive animations and sounds.
 - Reconnect: a secret token is kept in `localStorage`; on reconnect the client emits `room:rejoin`. Players have 30s before being eliminated (in a match) or removed (lobby). Host passes to another player if they leave.
 - `math.js`: pluggable generators per topic and difficulty (`TOPICS`); distractors are distinct integers, so exactly one choice is correct.
-- `public/`: vanilla JS, responsive CSS (touch-sized chambers, safe-area insets, landscape layout), WebAudio synthesised sounds.
+- `public/`: vanilla JS client. `arena.js` is a three.js (r128, from cdnjs) 3D duel arena: move the mouse or drag to aim, tap an outlaw to snap; the crosshair turns red on lock and that outlaw becomes your shot target. `app.js` wires server state to the arena; responsive CSS; WebAudio sounds.
