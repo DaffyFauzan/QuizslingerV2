@@ -1,0 +1,10 @@
+{
+  "name": "math-duel",
+  "version": "1.0.0",
+  "description": "Multiplayer Wild West math duel game (2-4 players)",
+  "main": "server.js",
+  "scripts": { "start": "node server.js", "dev": "node --watch server.js", "test": "node test/test.js" },
+  "engines": { "node": ">=18" },
+  "dependencies": { "express": "^4.19.2", "socket.io": "^4.7.5" },
+  "devDependencies": { "socket.io-client": "^4.7.5" }
+}
