@@ -76,3 +76,13 @@ dialog::backdrop{background:#000a}dialog h3{font:1.4rem var(--display);color:var
 }
 @media (max-height:520px) and (orientation:landscape){.arena{height:46vh}.chambers .ch{min-height:52px}.fire{min-height:52px}.cylinder{width:60px;height:60px}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+.plist{max-height:38vh;overflow-y:auto}.oppgrid{max-height:26vh;overflow-y:auto}.opp{min-height:52px}
+
+.audioctl{position:fixed;top:calc(var(--sa-t) + 8px);right:10px;z-index:20;display:flex;gap:8px;align-items:center}
+.audioctl .icon{position:static}
+#vol{width:90px;min-height:0;padding:0;border:0;background:none;accent-color:#c9953c}
+.top{padding-right:150px}
+.cd{position:absolute;inset:0;z-index:3;display:grid;place-content:center;justify-items:center;background:rgba(20,35,43,.55);pointer-events:none;text-align:center}
+.cd b{font:clamp(4rem,22vw,8rem)/1 var(--display);color:var(--brass);text-shadow:0 5px 0 #000a}
+.cd span{font:1.3rem var(--display);color:var(--bone)}

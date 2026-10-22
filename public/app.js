@@ -1,13 +1,13 @@
 'use strict';
 const $ = (id) => document.getElementById(id);
 const socket = io({ reconnection: true });
-let arena = null, S = null, offset = 0, target = null, lastShot = null, prevState = null, prevPhase = null, prevRound = 0;
+let lastCd = -1, arena = null, S = null, offset = 0, target = null, lastShot = null, prevState = null, prevPhase = null, prevRound = 0;
 let sess = JSON.parse(localStorage.getItem('mdSession') || 'null');
 const log = [];
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const fmt = (n) => (n < 0 ? '−' + Math.abs(n) : String(n));
 const SCREENS = ['menu', 'lobby', 'duel', 'results'];
-const show = (n) => SCREENS.forEach((s) => ($(s).hidden = s !== n));
+const show = (n) => { SCREENS.forEach((s) => ($(s).hidden = s !== n)); window.MDMusic && MDMusic.scene(n); };
 
 /* ---------- sound (synthesised, no assets) ---------- */
 let ac, muted = localStorage.getItem('mdMute') === '1';
@@ -39,7 +39,8 @@ const SND = {
   win: () => { [392, 392, 523, 659, 784].forEach((f, i) => tone(f, 0.22, 'triangle', 0.14, 0, i * 0.16)); },
 };
 $('mute').textContent = muted ? '🔇' : '🔊';
-$('mute').onclick = () => { muted = !muted; localStorage.setItem('mdMute', muted ? '1' : '0'); $('mute').textContent = muted ? '🔇' : '🔊'; };
+window.MDMusic && MDMusic.mute(muted);
+$('mute').onclick = () => { muted = !muted; window.MDMusic && MDMusic.mute(muted); localStorage.setItem('mdMute', muted ? '1' : '0'); $('mute').textContent = muted ? '🔇' : '🔊'; };
 
 /* ---------- helpers ---------- */
 let toastT;
@@ -87,7 +88,7 @@ function renderLobby() {
   $('lobbyCode').textContent = S.code;
   $('lobbyPlayers').innerHTML = S.players.map((p) =>
     `<li><span class="dot ${p.connected ? '' : 'off'}"></span><span>${esc(p.name)}${p.id === S.you ? ' (you)' : ''}</span>${p.id === S.hostId ? '<span style="margin-left:auto">👑 Host</span>' : ''}</li>`).join('');
-  $('lobbyCount').textContent = `${S.players.length} of 4 gunslingers`;
+  $('lobbyCount').textContent = `${S.players.length} of 16 gunslingers`;
   $('hostCtl').hidden = !host; $('lobbyDiff').value = S.difficulty;
   $('start').disabled = S.players.filter((p) => p.connected).length < 2;
   $('guestNote').textContent = host ? '' : `Waiting for the host to start (${S.difficulty}).`;
@@ -96,7 +97,25 @@ function renderLobby() {
 
 /* ---------- duel ---------- */
 function liveRound() { return S.round && S.round.phase === 'live' && me().alive; }
+function ensureArena() {
+  if (!arena && window.THREE) { arena = new Arena($('arena')); arena.onAim = (id) => { if (id !== target) { target = id; if (S && S.state === 'playing') renderDuel(); } }; }
+  return arena;
+}
+function renderCountdown() {
+  ensureArena(); if (arena) arena.update(S.players, S.you, S.maxHp);
+  $('cd').hidden = false;
+  $('dRoom').textContent = `Room ${S.code}`; $('dRound').textContent = 'Get ready'; $('dTime').textContent = '';
+  $('eqText').textContent = '…'; $('eqNote').textContent = 'The duel starts when the countdown ends. Look around and find your targets.';
+  $('chambers').innerHTML = ''; $('loadedNum').textContent = '–'; $('ammo').textContent = `Bullets: ${S.bullets} per round`; $('loadedNote').textContent = '';
+  $('fire').disabled = true; $('fire').textContent = 'Get ready';
+  $('opps').innerHTML = S.players.filter((q) => q.id !== S.you).map((q) => `<button class="opp ${q.connected ? '' : 'off'}" data-id="${q.id}"><span class="nm">${esc(q.name)}</span><span class="hearts">${hearts(q)}</span></button>`).join('');
+  $('opps').querySelectorAll('.opp').forEach((b) => (b.onclick = () => arena && arena.lookAt(b.dataset.id)));
+  $('meCard').innerHTML = `<div class="mecard"><b>${esc(me().name)}</b><span>${hearts(me())}</span></div>`;
+  timerTick();
+}
 function renderDuel() {
+  if (!S.round) return renderCountdown();
+  $('cd').hidden = true;
   const r = S.round, p = me(), live = liveRound(), now = serverNow();
   $('dRoom').textContent = `Room ${S.code}`; $('dRound').textContent = `Round ${r.no}`;
   const opps = S.players.filter((q) => q.id !== S.you);
@@ -141,6 +160,12 @@ function applyShotFx(e) {
   if (e.hit && el(e.to)) el(e.to).classList.add('hit');
 }
 function timerTick() {
+  if (S && S.state === 'playing' && !S.round && S.countdownEnd) {
+    const n = Math.max(0, Math.ceil((S.countdownEnd - serverNow()) / 1000));
+    $('timebar').style.width = '100%'; $('timebar').classList.remove('low');
+    if (n !== lastCd) { lastCd = n; $('cdNum').textContent = n || 'Draw!'; tone(n === 1 ? 880 : 620, 0.14, 'square', 0.12); }
+    return;
+  }
   if (!S || S.state !== 'playing' || !S.round) return;
   const r = S.round, rem = Math.max(0, r.endsAt - serverNow());
   const live = r.phase === 'live';
@@ -155,7 +180,7 @@ $('again').onclick = () => socket.emit('room:again');
 function renderResults() {
   const winner = byId(S.ranking[0]);
   $('winTitle').textContent = winner ? (winner.id === S.you ? 'You win!' : `${winner.name} wins!`) : 'Draw';
-  const medal = ['🥇', '🥈', '🥉', '4th'];
+  const medal = ['🥇', '🥈', '🥉'];
   $('rank').innerHTML = S.ranking.map((id, i) => { const p = byId(id); return `<li><b>${medal[i] || i + 1}</b><span>${esc(p.name)}${id === S.you ? ' (you)' : ''}</span></li>`; }).join('');
   $('stats').innerHTML = '<tr><th>Player</th><th>Hits</th><th>Shots</th><th>Blanks</th><th>Accuracy</th></tr>' +
     S.ranking.map((id) => { const p = byId(id); return `<tr><td>${esc(p.name)}</td><td>${p.hits}</td><td>${p.shots}</td><td>${p.blanks}</td><td>${p.shots ? Math.round((p.hits / p.shots) * 100) : 0}%</td></tr>`; }).join('');
@@ -166,7 +191,7 @@ function renderResults() {
 /* ---------- state + events ---------- */
 socket.on('state', (s) => {
   const first = !S;
-  S = s; offset = s.now - Date.now();
+  S = s; offset = s.now - Date.now(); if (s.round) lastCd = -1;
   const r = s.round;
   if (r && r.no !== prevRound) { prevRound = r.no; if (s.state === 'playing') addLog(`Round ${r.no}: ${r.text}`); }
   if (r && prevPhase === 'live' && r.phase === 'between' && !r.winnerId && s.state === 'playing') { toast('Time is up. No hits.', 'bad'); addLog('Time ran out.'); }

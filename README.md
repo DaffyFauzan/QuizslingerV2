@@ -1,13 +1,19 @@
 # Math Duel
 
-Gunblood-style Wild West duels with math. 2–4 players share one equation and six bullets (six answers, one correct). Load a bullet yourself, pick a target, fire.
+Gunblood-style Wild West duels with math. 2–16 players share one equation and six bullets (six answers, one correct). Load a bullet yourself, pick a target, fire.
 
 ## Rules (implemented exactly)
 - **Six bullets refill every round** (the limit is per round, not per match). Each bullet is one of the six answers.
 - Load any unspent bullet by tapping it (never auto-loaded). Reloading a different bullet swaps the chamber.
-- **Correct bullet = hit** (target loses 1 of 3 lives) and ends the round. **Wrong bullet = blank**: it is spent and you must wait 1.2s to fire again.
+- **Correct bullet = hit** (target loses 1 life: 3 lives with up to 4 players, 2 with up to 8, 1 with up to 16) and ends the round. **Wrong bullet = blank**: it is spent and you must wait 1.2s to fire again.
 - If time runs out, nobody is hit. A new equation starts after ~3.5s.
 - Last player alive wins. Ranking = survivor, then reverse elimination order.
+
+## Before the match
+The host presses Start and every player sees a synced 5-second countdown (server-controlled, `COUNTDOWN_MS` env var) before round 1.
+
+## Music
+Drop your own tracks in `public/music/` and list them in `public/music/playlist.json` (per screen: menu, lobby, duel, results). See `public/music/README.md`.
 
 ## Run locally
 ```bash
@@ -30,4 +36,4 @@ Open several browser tabs (or phones on the same network) to play.
 - After every change the server sends each player a personalised `state` snapshot. The correct index is only included after the round ends. `shot` events drive animations and sounds.
 - Reconnect: a secret token is kept in `localStorage`; on reconnect the client emits `room:rejoin`. Players have 30s before being eliminated (in a match) or removed (lobby). Host passes to another player if they leave.
 - `math.js`: pluggable generators per topic and difficulty (`TOPICS`); distractors are distinct integers, so exactly one choice is correct.
-- `public/`: vanilla JS client. `arena.js` is a three.js (r128, from cdnjs) 3D duel arena: move the mouse or drag to aim, tap an outlaw to snap; the crosshair turns red on lock and that outlaw becomes your shot target. `app.js` wires server state to the arena; responsive CSS; WebAudio sounds.
+- `public/`: vanilla JS client. `arena.js` is a three.js (r128, from cdnjs) 3D duel arena: hold the mouse button or finger and drag to aim, tap an outlaw to snap; the crosshair turns red on lock and that outlaw becomes your shot target. `app.js` wires server state to the arena; responsive CSS; WebAudio sounds.

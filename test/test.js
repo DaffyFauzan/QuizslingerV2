@@ -1,5 +1,5 @@
 'use strict';
-process.env.BLANK_MS = '20'; process.env.BETWEEN_MS = '60'; process.env.PORT = '0';
+process.env.BLANK_MS = '20'; process.env.BETWEEN_MS = '60'; process.env.PORT = '0'; process.env.COUNTDOWN_MS = '300';
 const assert = require('assert');
 const { makeRound, DIFFICULTIES } = require('../math');
 const { server, io } = require('../server');
@@ -41,8 +41,12 @@ async function playMatch(url, n) {
   for (let i = 1; i < n; i++) { const j = await emit(socks[i], 'room:join', { name: 'P' + i, code: c.code }); assert(j.ok, j.error); tokens.push(j.token); }
   assert((await emit(socks[1], 'room:start')).ok === false, 'non-host cannot start');
   assert((await emit(socks[0], 'room:start')).ok);
-  await sleep(50);
+  await sleep(100);
   assert.strictEqual(states[0].state, 'playing');
+  assert.strictEqual(states[0].round, null, 'no round during countdown');
+  assert(states[0].countdownEnd > Date.now() - 1000, 'countdown is synced');
+  assert((await emit(socks[0], 'game:load', { index: 0 })).ok === false, 'cannot load during countdown');
+  await sleep(350);
   // all players see identical equation + choices; correct answer hidden while live
   states.forEach((s) => { assert.strictEqual(s.round.text, states[0].round.text); assert.deepStrictEqual(s.round.choices, states[0].round.choices); assert.strictEqual(s.round.correct, undefined); });
   // validation checks
@@ -58,7 +62,7 @@ async function playMatch(url, n) {
   await sleep(50); assert.strictEqual(states[0].players[1].connected, true);
   // bots: each tries bullets in order at a random live opponent; everyone fires simultaneously
   let over = false, guard = 0;
-  while (!over && guard++ < 4000) {
+  while (!over && guard++ < 6000) {
     await Promise.all(socks.map(async (s, i) => {
       const st = states[i]; if (!st || st.state !== 'playing' || st.round.phase !== 'live') return;
       const me = st.players.find((p) => p.id === st.you); if (!me.alive) return;
@@ -75,7 +79,7 @@ async function playMatch(url, n) {
   assert.strictEqual(f.ranking.length, n);
   assert.strictEqual(f.players.filter((p) => p.alive).length, 1, 'exactly one survivor');
   assert.strictEqual(f.ranking[0], f.players.find((p) => p.alive).id);
-  assert.strictEqual(f.players.reduce((a, p) => a + (3 - p.hp), 0), f.players.reduce((a, p) => a + p.hits, 0), 'damage equals hits');
+  assert.strictEqual(f.players.reduce((a, p) => a + (f.maxHp - p.hp), 0), f.players.reduce((a, p) => a + p.hits, 0), 'damage equals hits');
   assert((await emit(socks[0], 'room:again')).ok); await sleep(50);
   assert.strictEqual(states[0].state, 'lobby');
   socks.forEach((s) => s.close());
@@ -91,7 +95,7 @@ server.listen(0, async () => {
     assert((await emit(b, 'room:join', { name: 'B', code: 'ZZZZ' })).ok === false);
     assert((await emit(b, 'room:join', { name: 'a', code: c.code })).ok === false, 'duplicate name');
     a.close(); b.close();
-    for (const n of [2, 3, 4]) await playMatch(url, n);
+    for (const n of [2, 3, 4, 8, 16]) await playMatch(url, n);
     console.log('ALL TESTS PASSED'); process.exit(0);
   } catch (e) { console.error(e); process.exit(1); }
 });

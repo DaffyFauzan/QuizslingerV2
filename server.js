@@ -7,11 +7,13 @@ const { Server } = require('socket.io');
 const { makeRound, DIFFICULTIES } = require('./math');
 
 const PORT = process.env.PORT || 3000;
-const MAX_HP = 3;                 // hits a player can take
+const MAX_HP = 3;                 // default lives (2-4 players); scaled down for bigger rooms, see livesFor()
+const livesFor = (n) => (n <= 4 ? 3 : n <= 8 ? 2 : 1);
 const BULLETS = 6;                // bullets per player PER ROUND (refilled every round)
-const MAX_PLAYERS = 4;
+const MAX_PLAYERS = 16;
 const GRACE_MS = +process.env.GRACE_MS || 30000;       // reconnect window
 const BETWEEN_MS = +process.env.BETWEEN_MS || 3500;    // pause between rounds
+const COUNTDOWN_MS = +process.env.COUNTDOWN_MS || 5000;  // get-ready countdown before round 1
 const BLANK_MS = +process.env.BLANK_MS || 1200;        // reload penalty after a blank
 
 const app = express();
@@ -29,8 +31,8 @@ function newCode() {
   do { c = Array.from({ length: 4 }, () => A[Math.floor(Math.random() * A.length)]).join(''); } while (rooms.has(c));
   return c;
 }
-const resetPlayer = (p) => Object.assign(p, {
-  hp: MAX_HP, alive: true, left: false, loaded: null, spent: new Set(), cd: 0, hits: 0, shots: 0, blanks: 0, wins: 0,
+const resetPlayer = (p, hp = MAX_HP) => Object.assign(p, {
+  hp, alive: true, left: false, loaded: null, spent: new Set(), cd: 0, hits: 0, shots: 0, blanks: 0, wins: 0,
 });
 const makePlayer = (name, sid) => resetPlayer({
   id: uid(), token: crypto.randomBytes(16).toString('hex'), name, sid, connected: true, grace: null,
@@ -42,8 +44,8 @@ const ack = (cb, error, extra) => typeof cb === 'function' && cb(error ? { ok: f
 function view(room, p) {
   const r = room.round;
   return {
-    now: Date.now(), code: room.code, state: room.state, difficulty: room.difficulty, hostId: room.hostId,
-    you: p.id, maxHp: MAX_HP, bullets: BULLETS, ranking: room.ranking,
+    now: Date.now(), countdownEnd: room.state === 'playing' && !room.round ? room.countdownEnd : null, code: room.code, state: room.state, difficulty: room.difficulty, hostId: room.hostId,
+    you: p.id, maxHp: room.maxHp || MAX_HP, bullets: BULLETS, ranking: room.ranking,
     players: list(room).map((q) => ({
       id: q.id, name: q.name, connected: q.connected && !q.left, hp: q.hp, alive: q.alive,
       ready: q.loaded !== null, hits: q.hits, shots: q.shots, blanks: q.blanks, wins: q.wins,
@@ -159,7 +161,7 @@ io.on('connection', (socket) => {
     if (!name) return ack(cb, 'Enter a name first.');
     if (!room) return ack(cb, 'No room with that code.');
     if (room.state !== 'lobby') return ack(cb, 'That match has already started.');
-    if (list(room).length >= MAX_PLAYERS) return ack(cb, 'Room is full (4 players max).');
+    if (list(room).length >= MAX_PLAYERS) return ack(cb, 'Room is full (16 players max).');
     if (list(room).some((q) => q.name.toLowerCase() === name.toLowerCase())) return ack(cb, 'That name is taken in this room.');
     detach(socket);
     const p = makePlayer(name, socket.id);
@@ -193,9 +195,13 @@ io.on('connection', (socket) => {
     if (!room || room.hostId !== p.id || room.state !== 'lobby') return ack(cb, 'Only the host can start.');
     for (const q of list(room)) if (!q.connected) room.players.delete(q.id);
     if (list(room).length < 2) return ack(cb, 'Need at least 2 players.');
-    list(room).forEach(resetPlayer);
+    room.maxHp = livesFor(list(room).length);
+    list(room).forEach((q) => resetPlayer(q, room.maxHp));
     room.elim = []; room.ranking = null; room.roundNo = 0; room.state = 'playing';
-    ack(cb); startRound(room);
+    room.round = null; room.countdownEnd = Date.now() + COUNTDOWN_MS;   // everyone sees the same 5..1 countdown
+    ack(cb); broadcast(room);
+    clearTimeout(room.timer);
+    room.timer = setTimeout(() => room.state === 'playing' && startRound(room), COUNTDOWN_MS);
   });
 
   socket.on('room:again', (_, cb) => {

@@ -12,7 +12,7 @@
 </head>
 <body>
 <div class="sky" aria-hidden="true"><div class="sun"></div><div class="mesa"></div></div>
-<button id="mute" class="icon" aria-label="Toggle sound">🔊</button>
+<div class="audioctl"><input id="vol" type="range" min="0" max="1" step="0.05" aria-label="Music volume" hidden><button id="mute" class="icon" aria-label="Toggle sound">🔊</button></div>
 <div id="conn" class="conn" hidden>Lost the trail. Reconnecting…</div>
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
 <div id="flash" class="flash"></div>
@@ -58,7 +58,7 @@
     <div class="bar"><i id="timebar"></i></div>
   </header>
   <section class="eq panel"><p id="eqText" class="eqtext"></p><p id="eqNote" class="muted"></p></section>
-  <section id="arena" class="arena" aria-label="Duel arena: move the mouse or drag to aim, tap an outlaw to snap to them"></section>
+  <section id="arena" class="arena" aria-label="Duel arena: hold and drag to aim, tap an outlaw to snap to them"><div id="cd" class="cd" hidden><b id="cdNum">5</b><span>Get ready</span></div></section>
   <section class="opps panel"><h3>Outlaws (tap to aim)</h3><div id="opps" class="oppgrid"></div></section>
   <section class="rev panel">
     <div class="cyl"><div id="cylinder" class="cylinder"><span id="loadedNum">–</span></div>
@@ -85,15 +85,16 @@
   <ol>
     <li>Solve the equation in your head.</li>
     <li>Tap a bullet to load it. You choose; nothing loads for you.</li>
-    <li>Aim at an opponent: move the mouse, or drag on touch screens. Tap an outlaw to snap to them. The crosshair turns red when locked on.</li><li>Press Fire.</li>
+    <li>Aim at an opponent: hold the left mouse button (or your finger) and drag to look around. Tap an outlaw to snap to them. The crosshair turns red when locked on.</li><li>Press Fire.</li>
     <li>The right bullet hits and ends the round. A wrong bullet is a blank: it is spent and you reload for a moment.</li>
   </ol>
-  <p>Six bullets refill every round. Each hit costs 3 lives. Last gunslinger standing wins.</p>
+  <p>Six bullets refill every round. Each hit costs a life (3 lives with up to 4 players, 2 with up to 8, 1 with up to 16). Last gunslinger standing wins.</p>
   <button id="helpClose" class="btn primary">Got it</button>
 </dialog>
 <script src="/socket.io/socket.io.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="arena.js"></script>
+<script src="music.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

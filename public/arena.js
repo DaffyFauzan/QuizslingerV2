@@ -1,7 +1,17 @@
-/* 3D duel arena. Needs THREE (r128). Aim with mouse position / touch-drag; tap an outlaw to snap to them. */
+/* 3D duel arena. Needs THREE (r128). Aim by holding the mouse button or finger and dragging; tap an outlaw to snap to them. */
 (function (g) {
 'use strict';
-const T = g.THREE, D = 14, MAXYAW = 1.25, COLORS = [0xb3261e, 0x2c6e9b, 0x5b8a4a, 0x8a5aa8];
+const T = g.THREE, D = 14, MAXYAW = 1.25, COLORS = [0xb3261e, 0x2c6e9b, 0x5b8a4a, 0x8a5aa8, 0xd48a1f, 0x2a9d8f, 0x7a4a2a, 0xc2577a];
+// Seats: up to 3 outlaws in one arc; more are placed in staggered rows of <=5 so every outlaw has its own aim angle.
+function layout(n) {
+  if (n <= 3) return ({ 1: [[0, 14]], 2: [[-.55, 14], [.55, 14]], 3: [[-.85, 14], [0, 14], [.85, 14]] }[n] || []);
+  const rows = Math.ceil(n / 5), out = [], off = [0, .1, -.1]; let left = n;
+  for (let k = 0; k < rows; k++) {
+    const cnt = Math.ceil(left / (rows - k)); left -= cnt;
+    for (let i = 0; i < cnt; i++) out.push([(i - (cnt - 1) / 2) * .3 + off[k % 3], 12 + k * 7]);
+  }
+  return out;
+}
 const mat = (c) => new T.MeshLambertMaterial({ color: c });
 const box = (w, h, d, c, x, y, z) => { const m = new T.Mesh(new T.BoxGeometry(w, h, d), mat(c)); m.position.set(x, y, z); return m; };
 const cyl = (rt, rb, h, c, x, y, z, seg = 14) => { const m = new T.Mesh(new T.CylinderGeometry(rt, rb, h, seg), mat(c)); m.position.set(x, y, z); return m; };
@@ -59,7 +69,11 @@ class Arena {
     const sunM = new T.Mesh(new T.SphereGeometry(9, 20, 14), new T.MeshBasicMaterial({ color: 0xf6d58a, fog: false })); sunM.position.set(10, 12, -120); sc.add(sunM);
     const ground = new T.Mesh(new T.PlaneGeometry(400, 400), mat(0xc9a468)); ground.rotation.x = -Math.PI / 2; sc.add(ground);
     [[-70, 14, -85], [-35, 9, -100], [40, 18, -95], [78, 11, -75], [-95, 10, -30], [100, 13, -20]].forEach(([x, h, z]) => sc.add(box(26, h, 16, 0x8a4b2d, x, h / 2, z)));
-    [[-9, -8], [10, -7], [-16, -18], [18, -16], [-6, -26], [7, -30], [-22, 2], [22, 4]].forEach(([x, z]) => {
+    // Keep the duel lane clear: no cactus between you and the outlaws (they stand ~14 units out within ~±50° of forward).
+    // Cacti only appear behind the outlaws (beyond 34 units), far to the sides (>86°), or behind the player.
+    [[-22, -40], [26, -38], [-9, -46], [11, -50], [-36, -6], [38, -4], [-14, 13], [15, 11], [0, 18]].filter(([x, z]) => {
+      const r = Math.hypot(x, z), ang = Math.abs(Math.atan2(x, -z)); return r > 34 || ang > 1.5;
+    }).forEach(([x, z]) => {
       const c = new T.Group(); c.add(cyl(.3, .35, 3, 0x4d7a3a, 0, 1.5, 0), cyl(.2, .2, 1, 0x4d7a3a, .6, 1.8, 0), cyl(.2, .2, 1, 0x4d7a3a, -.6, 1.5, 0));
       c.position.set(x, 0, z); sc.add(c);
     });
@@ -74,24 +88,29 @@ class Arena {
     const x = this.cross = document.createElement('div');
     x.style.cssText = 'position:absolute;left:50%;top:50%;width:34px;height:34px;margin:-17px 0 0 -17px;border:3px solid #efe6d2;border-radius:50%;pointer-events:none;box-shadow:0 0 4px #000;transition:.12s';
     x.innerHTML = '<i style="position:absolute;left:50%;top:50%;width:5px;height:5px;margin:-2.5px;background:currentColor;border-radius:50%"></i>';
-    this.el.style.position = 'relative'; this.el.appendChild(x);
+    const h = this.hurt = document.createElement('div');
+    h.style.cssText = 'position:absolute;inset:0;pointer-events:none;opacity:0;background:radial-gradient(transparent 40%,rgba(179,38,30,.85))';
+    this.el.style.position = 'relative'; this.el.appendChild(h); this.el.appendChild(x);
   }
   bind() {
     const c = this.renderer.domElement; let d = null;
+    c.style.cursor = 'grab';
+    c.addEventListener('pointerdown', (e) => { d = { x: e.clientX, y: e.clientY, moved: 0, t: Date.now() }; c.setPointerCapture(e.pointerId); c.style.cursor = 'grabbing'; });
     c.addEventListener('pointermove', (e) => {
-      const w = c.clientWidth, h = c.clientHeight;
-      if (e.pointerType === 'mouse') { this.tyaw = ((e.offsetX / w) - .5) * 2 * MAXYAW; this.tpitch = -((e.offsetY / h) - .5) * .7; }
-      else if (d) { const dx = e.clientX - d.x, dy = e.clientY - d.y; d.x = e.clientX; d.y = e.clientY; d.moved += Math.abs(dx) + Math.abs(dy);
-        this.tyaw = Math.max(-MAXYAW, Math.min(MAXYAW, this.tyaw + dx * .005)); this.tpitch = Math.max(-.35, Math.min(.35, this.tpitch - dy * .004)); this.yaw = this.tyaw; this.pitch = this.tpitch; }
+      if (!d) return; // look around only while the button / finger is held
+      const dx = e.clientX - d.x, dy = e.clientY - d.y; d.x = e.clientX; d.y = e.clientY; d.moved += Math.abs(dx) + Math.abs(dy);
+      this.tyaw = Math.max(-MAXYAW, Math.min(MAXYAW, this.tyaw + dx * .005));
+      this.tpitch = Math.max(-.35, Math.min(.35, this.tpitch - dy * .004));
+      this.yaw = this.tyaw; this.pitch = this.tpitch;
     });
-    c.addEventListener('pointerdown', (e) => { d = { x: e.clientX, y: e.clientY, moved: 0, t: Date.now() }; if (e.pointerType !== 'mouse') c.setPointerCapture(e.pointerId); });
-    c.addEventListener('pointerup', (e) => { if (d && d.moved < 8 && Date.now() - d.t < 350) this.snapAt(e.offsetX, c.clientWidth); d = null; });
+    const up = (e) => { if (d && e.type === 'pointerup' && d.moved < 8 && Date.now() - d.t < 350) this.snapAt(e.offsetX, c.clientWidth); d = null; c.style.cursor = 'grab'; };
+    c.addEventListener('pointerup', up); c.addEventListener('pointercancel', up);
   }
   snapAt(x, w) {
     let best = null, bd = w * .2;
     for (const f of this.figs.values()) {
       if (!f.alive) continue;
-      const v = new T.Vector3(Math.sin(f.ang) * D, 1.5, -Math.cos(f.ang) * D).project(this.camera), sx = (v.x + 1) / 2 * w;
+      const v = f.root.position.clone().setY(1.5).project(this.camera), sx = (v.x + 1) / 2 * w;
       if (Math.abs(sx - x) < bd) { bd = Math.abs(sx - x); best = f; }
     }
     if (best) this.lookAt(best.id);
@@ -106,17 +125,17 @@ class Arena {
     const opps = players.filter((p) => p.id !== you), key = opps.map((p) => p.id).join();
     if (key !== this.key) {
       this.key = key; this.figs.forEach((f) => this.scene.remove(f.root)); this.figs.clear(); this.tyaw = this.yaw = 0; this.aimed = null;
-      const angs = { 1: [0], 2: [-.55, .55], 3: [-.85, 0, .85] }[opps.length] || [];
+      const seats = layout(opps.length), tol = opps.length > 3 ? .05 : .075;
       opps.forEach((p, i) => {
-        const c = cowboy(COLORS[players.indexOf(p) % 4]), ang = angs[i], label = makeLabel();
-        c.root.position.set(Math.sin(ang) * D, 0, -Math.cos(ang) * D); c.root.lookAt(0, 0, 0); c.root.add(label);
-        this.scene.add(c.root); this.figs.set(p.id, { id: p.id, ang, label, flinch: 0, alive: true, fall: 0, ...c });
+        const c = cowboy(COLORS[players.indexOf(p) % COLORS.length]), [ang, dist] = seats[i], label = makeLabel();
+        c.root.position.set(Math.sin(ang) * dist, 0, -Math.cos(ang) * dist); c.root.lookAt(0, 0, 0); c.root.add(label);
+        this.scene.add(c.root); this.figs.set(p.id, { id: p.id, ang, tol, label, flinch: 0, alive: true, fall: 0, ...c });
       });
     }
     opps.forEach((p) => { const f = this.figs.get(p.id); f.alive = p.alive; paint(f.label, p.name, p.hp, maxHp, p.alive); });
   }
   worldOf(id) {
-    if (id === this.you) return this.camera.localToWorld(new T.Vector3(0, -.2, -.3));
+    if (id === this.you) return this.camera.localToWorld(new T.Vector3(.9, -.4, -1.5)); // whizzes past, never inside the lens
     const f = this.figs.get(id); return f ? f.root.localToWorld(new T.Vector3(0, 1.5, 0)) : null;
   }
   shoot(from, to, hit) {
@@ -130,7 +149,9 @@ class Arena {
     if (hit) {
       const bl = new T.Mesh(new T.SphereGeometry(.09, 8, 6), new T.MeshBasicMaterial({ color: 0xfff1a8 })); bl.position.copy(a); this.scene.add(bl);
       this.fx.push({ m: bl, t: 0, dur: .22, from: a, to: b, onEnd: () => {
-        const tf = this.figs.get(to); if (tf) tf.flinch = 1; else this.shake = .6;
+        const tf = this.figs.get(to);
+        if (!tf) { this.shake = .6; this.hurt.style.transition = 'none'; this.hurt.style.opacity = .7; void this.hurt.offsetWidth; this.hurt.style.transition = 'opacity .6s'; this.hurt.style.opacity = 0; return; }
+        tf.flinch = 1;
         const s = new T.Mesh(new T.SphereGeometry(.3, 8, 6), new T.MeshBasicMaterial({ color: 0xb3261e, transparent: true, opacity: .9 }));
         s.position.copy(b); this.scene.add(s); this.fx.push({ m: s, t: 0, dur: .4, grow: 3 });
       } });
@@ -150,10 +171,10 @@ class Arena {
     for (const f of this.figs.values()) {
       const tgt = f.alive ? 0 : -Math.PI / 2; f.fall += (tgt - f.fall) * (1 - Math.pow(.001, dt));
       f.flinch = Math.max(0, f.flinch - dt * 3); f.body.rotation.x = f.fall - f.flinch * .35;
-      if (f.alive) { f.body.rotation.z = Math.sin(t / 700 + f.ang * 5) * .02; const d = Math.abs(f.ang - this.yaw); if (d < .075 && d < bd) { best = f.id; bd = d; } }
+      if (f.alive) { f.body.rotation.z = Math.sin(t / 700 + f.ang * 5) * .02; const d = Math.abs(f.ang - this.yaw); if (d < f.tol && d < bd) { best = f.id; bd = d; } }
     }
     if (Math.abs(this.pitch) > .3) best = null;
-    if (best !== this.aimed) { this.aimed = best; this.cross.style.borderColor = best ? '#ff4b3a' : '#efe6d2'; this.cross.style.color = best ? '#ff4b3a' : '#efe6d2'; this.onAim && this.onAim(best); }
+    if (best !== this.aimed) { this.aimed = best; this.cross.style.borderColor = this.cross.style.color = best ? '#ff4b3a' : '#efe6d2'; this.onAim && this.onAim(best); }
     this.fx = this.fx.filter((e) => {
       e.t += dt; const p = Math.min(1, e.t / e.dur);
       if (e.from) e.m.position.lerpVectors(e.from, e.to, p);
