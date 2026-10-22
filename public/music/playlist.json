@@ -3,7 +3,7 @@
   "shuffle": false,
   "default": ["music/Lone Rider.mp3"],
   "menu": ["music/Lone Rider.mp3"],
-  "lobby": ["music/Team Fortress 2 Soundtrack The Art Of War.mp3"],
+  "lobby": ["music/Team Fortress 2 Soundtrack The Art of War.mp3"],
   "duel": ["music/Team Fortress 2 Soundtrack Mercenary Park.mp3"],
   "results": ["music/Team Fortress 2 Soundtrack Rocket Jump Waltz.mp3"]
 }
